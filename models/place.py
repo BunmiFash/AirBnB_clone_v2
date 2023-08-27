@@ -5,15 +5,15 @@ from sqlalchemy import Column, Integer, Float, String, ForeignKey
 from sqlalchemy.orm import relationship
 from models.city import City
 from models.user import User
-from models.review import Review
+from os import getenv
 
 
 class Place(BaseModel, Base):
     """ A place to stay """
     __tablename__ = "places"
 
-    city_id = Column(String(60), nullable=False, ForeignKey(City.id))
-    user_id = Column(String(60), nullable=False, ForeignKey(User.id))
+    city_id = Column(String(60), ForeignKey(City.id), nullable=False)
+    user_id = Column(String(60), ForeignKey(User.id), nullable=False)
     name = Column(String(128), nullable=False)
     description = Column(String(1024), nullable=False)
     number_rooms = Column(Integer, nullable=False, default=0)
@@ -22,6 +22,22 @@ class Place(BaseModel, Base):
     price_by_night = Column(Integer, nullable=False, default=0)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
-    reviews = relationship(
-            "Review", backref="place", cascade="all, delete")
     amenity_ids = []
+
+    if getenv('HBNB_TYPE_STORAGE') == "db":
+        reviews = relationship(
+                "Review", backref="place", cascade="all, delete")
+    else:
+        @property
+        def reviews(self):
+            """GETTER ATTRIBUTE"""
+            from models.review import Review
+            from models.engine.file_storage import FileStorage
+            fs = FileStorage()
+            reviews = fs.all(Review)
+            rev_obj = []
+
+            for rev in reviews.values():
+                if rev.place_id == self.id:
+                    rev_obj.append(rev)
+                    return rev_obj
